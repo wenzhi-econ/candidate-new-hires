@@ -319,7 +319,21 @@ def _(alt, math, pd, pycountry, re):
             alt.Tooltip("baseline_share:Q", title="Universe share", format=".2%"),
             alt.Tooltip("rank:Q", title="Matched rank", format="d"),
         ]
-        base = alt.Chart(top).encode(
+        chart_columns = [
+            "display_label",
+            "count",
+            "share",
+            "baseline_count",
+            "baseline_share",
+            "rank",
+        ]
+        chart_data = top.loc[:, chart_columns].copy()
+        for column in ("count", "share", "baseline_count", "baseline_share", "rank"):
+            chart_data[column] = chart_data[column].astype(object).where(
+                chart_data[column].notna(),
+                None,
+            )
+        base = alt.Chart(chart_data).encode(
             y=alt.Y(
                 "display_label:N",
                 sort=order,
@@ -487,6 +501,17 @@ def _(hierarchy_number, mo, pd):
     AGGREGATE_DIR = (
         mo.notebook_location() / "public" / "data" / "C03_MatchedCandidateFNH"
     )
+
+    def read_public_parquet(path):
+        path = str(path)
+        if path.startswith(("http://", "https://")):
+            from io import BytesIO
+            from urllib.request import urlopen
+
+            with urlopen(path) as response:
+                return pd.read_parquet(BytesIO(response.read()))
+        return pd.read_parquet(path)
+
     REQUIRED_AGGREGATES = (
         "metadata.parquet",
         "link_diagnostics.parquet",
@@ -506,7 +531,7 @@ def _(hierarchy_number, mo, pd):
             "The publication data bundle is incomplete. "
             f"Missing aggregate files in {AGGREGATE_DIR}: {missing_aggregates}"
         )
-    metadata = pd.read_parquet(str(AGGREGATE_DIR / "metadata.parquet")).iloc[0]
+    metadata = read_public_parquet(AGGREGATE_DIR / "metadata.parquet").iloc[0]
 
     def _columns(name):
         value = str(metadata[name])
@@ -525,21 +550,19 @@ def _(hierarchy_number, mo, pd):
     EXPECTED_RICS_COLUMNS = ("rics_k50", "rics_k200", "rics_k400")
 
     def load_classification_counts(variable):
-        return pd.read_parquet(
-            str(AGGREGATE_DIR / "classification" / f"{variable}.parquet")
+        return read_public_parquet(
+            AGGREGATE_DIR / "classification" / f"{variable}.parquet"
         )
 
     def load_joint_counts(industry_variable, occupation_variable):
-        return pd.read_parquet(
-            str(
-                AGGREGATE_DIR
-                / "joint"
-                / f"{industry_variable}__{occupation_variable}.parquet"
-            )
+        return read_public_parquet(
+            AGGREGATE_DIR
+            / "joint"
+            / f"{industry_variable}__{occupation_variable}.parquet"
         )
 
-    country_counts = pd.read_parquet(str(AGGREGATE_DIR / "country_counts.parquet"))
-    link_diagnostics = pd.read_parquet(str(AGGREGATE_DIR / "link_diagnostics.parquet"))
+    country_counts = read_public_parquet(AGGREGATE_DIR / "country_counts.parquet")
+    link_diagnostics = read_public_parquet(AGGREGATE_DIR / "link_diagnostics.parquet")
     return (
         AGGREGATE_DIR,
         EXPECTED_RICS_COLUMNS,
@@ -551,6 +574,7 @@ def _(hierarchy_number, mo, pd):
         load_classification_counts,
         load_joint_counts,
         metadata,
+        read_public_parquet,
     )
 
 
@@ -570,6 +594,7 @@ def _(
     load_classification_counts,
     metadata,
     pd,
+    read_public_parquet,
 ):
     DEFAULT_BIOPHARM_INDUSTRIES = (
         "Biotechnology and Life Sciences",
@@ -658,9 +683,9 @@ def _(
             for column, summary in matched_distributions.items()
         ]
     )
-    schema_report = pd.read_parquet(str(AGGREGATE_DIR / "schema_report.parquet"))
-    title_diagnostics = pd.read_parquet(
-        str(AGGREGATE_DIR / "title_diagnostics.parquet")
+    schema_report = read_public_parquet(AGGREGATE_DIR / "schema_report.parquet")
+    title_diagnostics = read_public_parquet(
+        AGGREGATE_DIR / "title_diagnostics.parquet"
     )
     onet_title_diagnostic = title_diagnostics.loc[
         title_diagnostics["classification"] == "ONET",
@@ -1496,6 +1521,7 @@ def _(
     distribution_from_sample_counts,
     math,
     pd,
+    read_public_parquet,
     us_state_code,
 ):
     _country_values = country_counts.rename(columns={"country": "value"}).copy()
@@ -1532,8 +1558,8 @@ def _(
     )
     mapped_country_summary = country_summary.dropna(subset=["iso3"]).copy()
     unmapped_country_summary = country_summary.loc[country_summary["iso3"].isna()].copy()
-    us_state_summary = pd.read_parquet(
-        str(AGGREGATE_DIR / "us_state_counts.parquet")
+    us_state_summary = read_public_parquet(
+        AGGREGATE_DIR / "us_state_counts.parquet"
     ).rename(
         columns={
             "matched_count": "count",
@@ -1798,9 +1824,10 @@ def _(
     filter_country_scope,
     mo,
     pd,
+    read_public_parquet,
     time_series_country_selector,
 ):
-    _counts = pd.read_parquet(str(AGGREGATE_DIR / "time_counts.parquet"))
+    _counts = read_public_parquet(AGGREGATE_DIR / "time_counts.parquet")
     _counts, _scope_label = filter_country_scope(_counts, time_series_country_selector.value)
     time_series = (
         _counts.groupby("start_month", observed=True)[["matched_count", "universe_count"]]

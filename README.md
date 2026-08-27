@@ -76,10 +76,17 @@ If export fails with `uv must be installed to resolve local imports`, verify tha
 `Install uv for marimo's import resolver` step appears before the export step. The bundled
 workflow already includes this fix.
 
-If a deployed notebook reports `BadGzipFile: Not a gzipped file (b'PA')`, confirm that
-paths constructed with `mo.notebook_location()` are converted to strings before they are
-passed to `pandas.read_parquet`. In WebAssembly, marimo returns a URL-like path; pandas must
-receive its string form so it uses HTTP instead of treating the URL as a local path.
+If a deployed notebook reports `BadGzipFile: Not a gzipped file (b'PA')`, do not pass the
+HTTP URL directly to `pandas.read_parquet`. In WebAssembly, the browser can decompress a
+GitHub Pages response while preserving its `Content-Encoding: gzip` header. Pandas then
+tries to decompress the already-decoded Parquet bytes a second time. The publication
+notebooks avoid this by fetching HTTP data as bytes and passing an in-memory `BytesIO`
+stream to `pandas.read_parquet`; local paths still go directly to pandas.
+
+If an Altair output reports that an out-of-range `nan` value is not JSON compliant, pass
+only the columns used by the chart and convert any intentionally missing plotted values to
+`None`. WebAssembly serializes the full DataFrame supplied to Altair, including unused
+columns.
 
 ## Preview the exported site before publishing
 

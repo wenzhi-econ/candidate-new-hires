@@ -540,6 +540,17 @@ def _(hierarchy_number, mo, pd):
     AGGREGATE_DIR = (
         mo.notebook_location() / "public" / "data" / "C01_UniverseCandidateFNH"
     )
+
+    def read_public_parquet(path):
+        path = str(path)
+        if path.startswith(("http://", "https://")):
+            from io import BytesIO
+            from urllib.request import urlopen
+
+            with urlopen(path) as response:
+                return pd.read_parquet(BytesIO(response.read()))
+        return pd.read_parquet(path)
+
     REQUIRED_AGGREGATES = (
         "metadata.parquet",
         "schema_report.parquet",
@@ -559,7 +570,7 @@ def _(hierarchy_number, mo, pd):
             "The publication data bundle is incomplete. "
             f"Missing aggregate files in {AGGREGATE_DIR}: {missing_aggregates}"
         )
-    metadata = pd.read_parquet(str(AGGREGATE_DIR / "metadata.parquet")).iloc[0]
+    metadata = read_public_parquet(AGGREGATE_DIR / "metadata.parquet").iloc[0]
 
     def _columns(name):
         value = str(metadata[name])
@@ -578,28 +589,24 @@ def _(hierarchy_number, mo, pd):
     EXPECTED_RICS_COLUMNS = ("rics_k50", "rics_k200", "rics_k400")
 
     def load_classification_counts(variable, scope_key="all"):
-        table = pd.read_parquet(
-            str(AGGREGATE_DIR / "classification" / f"{variable}.parquet")
+        table = read_public_parquet(
+            AGGREGATE_DIR / "classification" / f"{variable}.parquet"
         )
         return table.loc[table["scope_key"] == scope_key].copy()
 
     def load_crosswalk_counts(left_variable, right_variable, scope_key="all"):
-        table = pd.read_parquet(
-            str(
-                AGGREGATE_DIR
-                / "crosswalk"
-                / f"{left_variable}__{right_variable}.parquet"
-            )
+        table = read_public_parquet(
+            AGGREGATE_DIR
+            / "crosswalk"
+            / f"{left_variable}__{right_variable}.parquet"
         )
         return table.loc[table["scope_key"] == scope_key].copy()
 
     def load_joint_counts(industry_variable, occupation_variable, scope_key="all"):
-        table = pd.read_parquet(
-            str(
-                AGGREGATE_DIR
-                / "joint"
-                / f"{industry_variable}__{occupation_variable}.parquet"
-            )
+        table = read_public_parquet(
+            AGGREGATE_DIR
+            / "joint"
+            / f"{industry_variable}__{occupation_variable}.parquet"
         )
         return table.loc[table["scope_key"] == scope_key].copy()
 
@@ -613,6 +620,7 @@ def _(hierarchy_number, mo, pd):
         load_crosswalk_counts,
         load_joint_counts,
         metadata,
+        read_public_parquet,
     )
 
 
@@ -633,6 +641,7 @@ def _(
     load_crosswalk_counts,
     metadata,
     pd,
+    read_public_parquet,
 ):
     CLASSIFICATION_LABELS = {
         "onet_code": "ONET code and title",
@@ -692,8 +701,8 @@ def _(
         summary = summary.loc[summary["value"] != MISSING_LABEL]
         return dict(zip(summary["display_label"], summary["value"], strict=True))
 
-    role_crosswalk_rows = pd.read_parquet(
-        str(AGGREGATE_DIR / "role_onet_crosswalk.parquet")
+    role_crosswalk_rows = read_public_parquet(
+        AGGREGATE_DIR / "role_onet_crosswalk.parquet"
     )
     if "role_k1500" in AVAILABLE_ROLE_COLUMNS:
         role_crosswalk_rows["ONET code and title"] = (
@@ -742,9 +751,9 @@ def _(
             for column, summary in distribution_tables.items()
         ]
     )
-    schema_report = pd.read_parquet(str(AGGREGATE_DIR / "schema_report.parquet"))
-    title_diagnostics = pd.read_parquet(
-        str(AGGREGATE_DIR / "title_diagnostics.parquet")
+    schema_report = read_public_parquet(AGGREGATE_DIR / "schema_report.parquet")
+    title_diagnostics = read_public_parquet(
+        AGGREGATE_DIR / "title_diagnostics.parquet"
     )
     onet_title_diagnostic = title_diagnostics.loc[
         title_diagnostics["classification"] == "ONET",
@@ -1998,8 +2007,8 @@ def _(
 
 
 @app.cell
-def _(AGGREGATE_DIR, country_iso3, math, pd, us_state_code):
-    country_summary = pd.read_parquet(str(AGGREGATE_DIR / "country_counts.parquet"))
+def _(AGGREGATE_DIR, country_iso3, math, pd, read_public_parquet, us_state_code):
+    country_summary = read_public_parquet(AGGREGATE_DIR / "country_counts.parquet")
     country_summary = country_summary.rename(columns={"country": "value"})
     country_summary["country"] = country_summary["value"]
     country_summary["display_label"] = country_summary["value"]
@@ -2011,7 +2020,7 @@ def _(AGGREGATE_DIR, country_iso3, math, pd, us_state_code):
     )
     mapped_country_summary = country_summary.dropna(subset=["iso3"]).copy()
     unmapped_country_summary = country_summary.loc[country_summary["iso3"].isna()].copy()
-    us_state_summary = pd.read_parquet(str(AGGREGATE_DIR / "us_state_counts.parquet"))
+    us_state_summary = read_public_parquet(AGGREGATE_DIR / "us_state_counts.parquet")
     us_state_summary["share_within_country"] = (
         us_state_summary["count"] / us_state_summary["count"].sum()
     )
@@ -2163,11 +2172,12 @@ def _(
     distribution_from_counts,
     mo,
     pd,
+    read_public_parquet,
     resolve_country_scope,
     seniority_country_selector,
 ):
     _scope_key, _scope_label = resolve_country_scope(seniority_country_selector.value)
-    _counts = pd.read_parquet(str(AGGREGATE_DIR / "seniority_counts.parquet"))
+    _counts = read_public_parquet(AGGREGATE_DIR / "seniority_counts.parquet")
     _counts = _counts.loc[_counts["scope_key"] == _scope_key].copy()
     seniority_summary = distribution_from_counts(_counts, "seniority")
     seniority_summary["seniority_order"] = pd.to_numeric(
@@ -2250,11 +2260,12 @@ def _(
     alt,
     mo,
     pd,
+    read_public_parquet,
     resolve_country_scope,
     time_series_country_selector,
 ):
     _scope_key, _scope_label = resolve_country_scope(time_series_country_selector.value)
-    time_series = pd.read_parquet(str(AGGREGATE_DIR / "time_counts.parquet"))
+    time_series = read_public_parquet(AGGREGATE_DIR / "time_counts.parquet")
     time_series = time_series.loc[
         time_series["scope_key"] == _scope_key, ["start_month", "count"]
     ].copy()

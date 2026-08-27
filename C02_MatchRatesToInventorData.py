@@ -265,6 +265,7 @@ def helpers(alt, pd, pl, pycountry, re):
         else:
             _summary[title_column] = _summary["title"].map(_display_value).astype("string")
             _summary["display_label"] = _summary["group_value"] + " — " + _summary[title_column]
+        _summary = _summary.drop(columns=["title"], errors="ignore")
         _scope_labels = {
             "all": "All countries",
             "us": "United States",
@@ -821,7 +822,23 @@ def helpers(alt, pd, pl, pycountry, re):
 
         if summary.empty:
             return None
-        _valid = summary.dropna(subset=["match_rate"]).copy()
+        _chart_columns = [
+            "industry_label",
+            "occupation_label",
+            "candidate_count",
+            "matched_count",
+            "match_rate",
+            "ci_low",
+            "ci_high",
+            "count_label",
+        ]
+        _chart_data = summary.loc[:, _chart_columns].copy()
+        for _column in ("match_rate", "ci_low", "ci_high"):
+            _chart_data[_column] = _chart_data[_column].astype(object).where(
+                _chart_data[_column].notna(),
+                None,
+            )
+        _valid = _chart_data.dropna(subset=["match_rate"]).copy()
         _color_max = max(float(_valid["match_rate"].max()), 0.01) if not _valid.empty else 0.01
         _text_threshold = _color_max * 0.55
         _candidate_title = (
@@ -852,7 +869,7 @@ def helpers(alt, pd, pl, pycountry, re):
             alt.Tooltip("ci_high:Q", title="95% CI upper", format=".2%"),
         ]
         _base = (
-            alt.Chart(summary)
+            alt.Chart(_chart_data)
             .mark_rect(color="#F3F4F6", stroke="#FFFFFF", strokeWidth=1.5)
             .encode(x=_x, y=_y, tooltip=_tooltips)
         )
@@ -889,7 +906,7 @@ def helpers(alt, pd, pl, pycountry, re):
             )
         )
         _count_labels = (
-            alt.Chart(summary)
+            alt.Chart(_chart_data)
             .mark_text(dy=10, fontSize=10)
             .encode(
                 x=_x,
@@ -1057,6 +1074,17 @@ def paths_and_schema(hierarchy_number, mo, pd):
     AGGREGATE_DIR = (
         mo.notebook_location() / "public" / "data" / "C02_MatchRatesToInventorData"
     )
+
+    def read_public_parquet(path):
+        path = str(path)
+        if path.startswith(("http://", "https://")):
+            from io import BytesIO
+            from urllib.request import urlopen
+
+            with urlopen(path) as response:
+                return pd.read_parquet(BytesIO(response.read()))
+        return pd.read_parquet(path)
+
     REQUIRED_AGGREGATES = (
         "metadata.parquet",
         "link_diagnostics.parquet",
@@ -1074,7 +1102,7 @@ def paths_and_schema(hierarchy_number, mo, pd):
             "The publication data bundle is incomplete. "
             f"Missing aggregate files in {AGGREGATE_DIR}: {missing_aggregates}"
         )
-    metadata = pd.read_parquet(str(AGGREGATE_DIR / "metadata.parquet")).iloc[0]
+    metadata = read_public_parquet(AGGREGATE_DIR / "metadata.parquet").iloc[0]
 
     def _columns(name):
         value = str(metadata[name])
@@ -1082,25 +1110,29 @@ def paths_and_schema(hierarchy_number, mo, pd):
 
     AVAILABLE_ROLE_COLUMNS = tuple(sorted(_columns("available_role_columns"), key=hierarchy_number))
     AVAILABLE_RICS_COLUMNS = tuple(sorted(_columns("available_rics_columns"), key=hierarchy_number))
-    return AGGREGATE_DIR, AVAILABLE_RICS_COLUMNS, AVAILABLE_ROLE_COLUMNS, metadata
+    return (
+        AGGREGATE_DIR,
+        AVAILABLE_RICS_COLUMNS,
+        AVAILABLE_ROLE_COLUMNS,
+        metadata,
+        read_public_parquet,
+    )
 
 
 @app.cell
-def load_data(AGGREGATE_DIR, pd):
+def load_data(AGGREGATE_DIR, read_public_parquet):
     fnh = AGGREGATE_DIR
-    link_diagnostics = pd.read_parquet(str(AGGREGATE_DIR / "link_diagnostics.parquet"))
-    scope_totals = pd.read_parquet(str(AGGREGATE_DIR / "scope_totals.parquet"))
+    link_diagnostics = read_public_parquet(AGGREGATE_DIR / "link_diagnostics.parquet")
+    scope_totals = read_public_parquet(AGGREGATE_DIR / "scope_totals.parquet")
 
     def load_rate_counts(variable):
-        return pd.read_parquet(str(AGGREGATE_DIR / "rates" / f"{variable}.parquet"))
+        return read_public_parquet(AGGREGATE_DIR / "rates" / f"{variable}.parquet")
 
     def load_joint_counts(industry_variable, occupation_variable):
-        return pd.read_parquet(
-            str(
-                AGGREGATE_DIR
-                / "joint"
-                / f"{industry_variable}__{occupation_variable}.parquet"
-            )
+        return read_public_parquet(
+            AGGREGATE_DIR
+            / "joint"
+            / f"{industry_variable}__{occupation_variable}.parquet"
         )
 
     return fnh, link_diagnostics, load_joint_counts, load_rate_counts, scope_totals
@@ -2048,9 +2080,9 @@ def country_controls(
     METRIC_OPTIONS,
     MIN_COUNTRY_CANDIDATE_SPELLS,
     mo,
-    pd,
+    read_public_parquet,
 ):
-    _countries = pd.read_parquet(str(AGGREGATE_DIR / "country_rates.parquet"))
+    _countries = read_public_parquet(AGGREGATE_DIR / "country_rates.parquet")
     _country_count = int((_countries["candidate_spells"] >= MIN_COUNTRY_CANDIDATE_SPELLS).sum())
     country_metric_selector = mo.ui.dropdown(
         options=METRIC_OPTIONS,
@@ -2087,10 +2119,11 @@ def country_rates(
     metric_label,
     pd,
     px,
+    read_public_parquet,
     scope_totals,
 ):
     country_metric = country_metric_selector.value
-    _counts = pd.read_parquet(str(AGGREGATE_DIR / "country_rates.parquet"))
+    _counts = read_public_parquet(AGGREGATE_DIR / "country_rates.parquet")
     _counts["title"] = pd.NA
     country_summary = aggregate_classification_rates(_counts, "country")
     country_reference_table = aggregate_reference_rates(scope_totals, country_metric)
@@ -2249,11 +2282,12 @@ def state_rates(
     metric_label,
     pd,
     px,
+    read_public_parquet,
     state_metric_selector,
     us_state_code,
 ):
     state_metric = state_metric_selector.value
-    _counts = pd.read_parquet(str(AGGREGATE_DIR / "us_state_rates.parquet"))
+    _counts = read_public_parquet(AGGREGATE_DIR / "us_state_rates.parquet")
     _counts["title"] = pd.NA
     state_summary = aggregate_classification_rates(_counts, "state")
     _state_map_working = state_summary.loc[state_summary["group_value"] != MISSING_LABEL].copy()
