@@ -506,7 +506,7 @@ def _(hierarchy_number, mo, pd):
             "The publication data bundle is incomplete. "
             f"Missing aggregate files in {AGGREGATE_DIR}: {missing_aggregates}"
         )
-    metadata = pd.read_parquet(AGGREGATE_DIR / "metadata.parquet").iloc[0]
+    metadata = pd.read_parquet(str(AGGREGATE_DIR / "metadata.parquet")).iloc[0]
 
     def _columns(name):
         value = str(metadata[name])
@@ -525,15 +525,21 @@ def _(hierarchy_number, mo, pd):
     EXPECTED_RICS_COLUMNS = ("rics_k50", "rics_k200", "rics_k400")
 
     def load_classification_counts(variable):
-        return pd.read_parquet(AGGREGATE_DIR / "classification" / f"{variable}.parquet")
+        return pd.read_parquet(
+            str(AGGREGATE_DIR / "classification" / f"{variable}.parquet")
+        )
 
     def load_joint_counts(industry_variable, occupation_variable):
         return pd.read_parquet(
-            AGGREGATE_DIR / "joint" / f"{industry_variable}__{occupation_variable}.parquet"
+            str(
+                AGGREGATE_DIR
+                / "joint"
+                / f"{industry_variable}__{occupation_variable}.parquet"
+            )
         )
 
-    country_counts = pd.read_parquet(AGGREGATE_DIR / "country_counts.parquet")
-    link_diagnostics = pd.read_parquet(AGGREGATE_DIR / "link_diagnostics.parquet")
+    country_counts = pd.read_parquet(str(AGGREGATE_DIR / "country_counts.parquet"))
+    link_diagnostics = pd.read_parquet(str(AGGREGATE_DIR / "link_diagnostics.parquet"))
     return (
         AGGREGATE_DIR,
         EXPECTED_RICS_COLUMNS,
@@ -652,8 +658,10 @@ def _(
             for column, summary in matched_distributions.items()
         ]
     )
-    schema_report = pd.read_parquet(AGGREGATE_DIR / "schema_report.parquet")
-    title_diagnostics = pd.read_parquet(AGGREGATE_DIR / "title_diagnostics.parquet")
+    schema_report = pd.read_parquet(str(AGGREGATE_DIR / "schema_report.parquet"))
+    title_diagnostics = pd.read_parquet(
+        str(AGGREGATE_DIR / "title_diagnostics.parquet")
+    )
     onet_title_diagnostic = title_diagnostics.loc[
         title_diagnostics["classification"] == "ONET",
         ["code", "distinct_titles"],
@@ -1524,7 +1532,9 @@ def _(
     )
     mapped_country_summary = country_summary.dropna(subset=["iso3"]).copy()
     unmapped_country_summary = country_summary.loc[country_summary["iso3"].isna()].copy()
-    us_state_summary = pd.read_parquet(AGGREGATE_DIR / "us_state_counts.parquet").rename(
+    us_state_summary = pd.read_parquet(
+        str(AGGREGATE_DIR / "us_state_counts.parquet")
+    ).rename(
         columns={
             "matched_count": "count",
             "universe_count": "baseline_count",
@@ -1790,7 +1800,7 @@ def _(
     pd,
     time_series_country_selector,
 ):
-    _counts = pd.read_parquet(AGGREGATE_DIR / "time_counts.parquet")
+    _counts = pd.read_parquet(str(AGGREGATE_DIR / "time_counts.parquet"))
     _counts, _scope_label = filter_country_scope(_counts, time_series_country_selector.value)
     time_series = (
         _counts.groupby("start_month", observed=True)[["matched_count", "universe_count"]]

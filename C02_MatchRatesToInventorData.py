@@ -1074,7 +1074,7 @@ def paths_and_schema(hierarchy_number, mo, pd):
             "The publication data bundle is incomplete. "
             f"Missing aggregate files in {AGGREGATE_DIR}: {missing_aggregates}"
         )
-    metadata = pd.read_parquet(AGGREGATE_DIR / "metadata.parquet").iloc[0]
+    metadata = pd.read_parquet(str(AGGREGATE_DIR / "metadata.parquet")).iloc[0]
 
     def _columns(name):
         value = str(metadata[name])
@@ -1088,15 +1088,19 @@ def paths_and_schema(hierarchy_number, mo, pd):
 @app.cell
 def load_data(AGGREGATE_DIR, pd):
     fnh = AGGREGATE_DIR
-    link_diagnostics = pd.read_parquet(AGGREGATE_DIR / "link_diagnostics.parquet")
-    scope_totals = pd.read_parquet(AGGREGATE_DIR / "scope_totals.parquet")
+    link_diagnostics = pd.read_parquet(str(AGGREGATE_DIR / "link_diagnostics.parquet"))
+    scope_totals = pd.read_parquet(str(AGGREGATE_DIR / "scope_totals.parquet"))
 
     def load_rate_counts(variable):
-        return pd.read_parquet(AGGREGATE_DIR / "rates" / f"{variable}.parquet")
+        return pd.read_parquet(str(AGGREGATE_DIR / "rates" / f"{variable}.parquet"))
 
     def load_joint_counts(industry_variable, occupation_variable):
         return pd.read_parquet(
-            AGGREGATE_DIR / "joint" / f"{industry_variable}__{occupation_variable}.parquet"
+            str(
+                AGGREGATE_DIR
+                / "joint"
+                / f"{industry_variable}__{occupation_variable}.parquet"
+            )
         )
 
     return fnh, link_diagnostics, load_joint_counts, load_rate_counts, scope_totals
@@ -2046,7 +2050,7 @@ def country_controls(
     mo,
     pd,
 ):
-    _countries = pd.read_parquet(AGGREGATE_DIR / "country_rates.parquet")
+    _countries = pd.read_parquet(str(AGGREGATE_DIR / "country_rates.parquet"))
     _country_count = int((_countries["candidate_spells"] >= MIN_COUNTRY_CANDIDATE_SPELLS).sum())
     country_metric_selector = mo.ui.dropdown(
         options=METRIC_OPTIONS,
@@ -2086,7 +2090,7 @@ def country_rates(
     scope_totals,
 ):
     country_metric = country_metric_selector.value
-    _counts = pd.read_parquet(AGGREGATE_DIR / "country_rates.parquet")
+    _counts = pd.read_parquet(str(AGGREGATE_DIR / "country_rates.parquet"))
     _counts["title"] = pd.NA
     country_summary = aggregate_classification_rates(_counts, "country")
     country_reference_table = aggregate_reference_rates(scope_totals, country_metric)
@@ -2249,7 +2253,7 @@ def state_rates(
     us_state_code,
 ):
     state_metric = state_metric_selector.value
-    _counts = pd.read_parquet(AGGREGATE_DIR / "us_state_rates.parquet")
+    _counts = pd.read_parquet(str(AGGREGATE_DIR / "us_state_rates.parquet"))
     _counts["title"] = pd.NA
     state_summary = aggregate_classification_rates(_counts, "state")
     _state_map_working = state_summary.loc[state_summary["group_value"] != MISSING_LABEL].copy()

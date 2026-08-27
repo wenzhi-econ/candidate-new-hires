@@ -76,6 +76,11 @@ If export fails with `uv must be installed to resolve local imports`, verify tha
 `Install uv for marimo's import resolver` step appears before the export step. The bundled
 workflow already includes this fix.
 
+If a deployed notebook reports `BadGzipFile: Not a gzipped file (b'PA')`, confirm that
+paths constructed with `mo.notebook_location()` are converted to strings before they are
+passed to `pandas.read_parquet`. In WebAssembly, marimo returns a URL-like path; pandas must
+receive its string form so it uses HTTP instead of treating the URL as a local path.
+
 ## Preview the exported site before publishing
 
 From this directory, export the notebooks with the same marimo version used by the workflow.
