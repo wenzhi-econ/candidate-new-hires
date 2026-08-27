@@ -63,14 +63,18 @@ No Python server is needed after deployment.
 5. On GitHub, open **Settings > Pages** and select **GitHub Actions** as the source under
    **Build and deployment**.
 6. Open the **Actions** tab and inspect the `Build and deploy marimo reports` run. The
-   workflow installs the pinned build environment, exports the three notebooks, uploads
-   `_site`, and deploys it with GitHub's official Pages actions.
+   workflow installs the pinned Python environment and `uv` import resolver, exports the
+   three notebooks, uploads `_site`, and deploys it with GitHub's official Pages actions.
 7. When the run succeeds, open
    `https://wenzhi-econ.github.io/candidate-new-hires/`. Test all three links, change each
    main selector at least once, and inspect the browser console for missing packages or data.
 
 The workflow can also be run manually from **Actions > Build and deploy marimo reports >
 Run workflow**.
+
+If export fails with `uv must be installed to resolve local imports`, verify that the
+`Install uv for marimo's import resolver` step appears before the export step. The bundled
+workflow already includes this fix.
 
 ## Preview the exported site before publishing
 
