@@ -23,7 +23,7 @@ import marimo
 __generated_with = "0.24.0"
 app = marimo.App(
     width="full",
-    layout_file="layouts/B02_FNH_SummaryStats.slides.json",
+    layout_file="layouts/C01_UniverseCandidateFNH.slides.json",
     auto_download=["html"],
 )
 
@@ -515,18 +515,14 @@ def _(alt, math, pd, pycountry, re):
         return codes.get(state_name)
 
     return (
-        MISSING_LABEL,
         MIN_ALL_COUNTRY_INDUSTRY_HIRES,
+        MISSING_LABEL,
         available_country_options,
-        category_selector_options,
         country_iso3,
         crosswalk_from_counts,
-        crosswalk_table,
         distribution_from_counts,
-        distribution_table,
         hierarchy_number,
         joint_from_counts,
-        joint_distribution_table,
         make_crosswalk_chart,
         make_share_chart,
         resolve_country_scope,
@@ -537,9 +533,7 @@ def _(alt, math, pd, pycountry, re):
 
 @app.cell
 def _(hierarchy_number, mo, pd):
-    AGGREGATE_DIR = (
-        mo.notebook_location() / "public" / "data" / "C01_UniverseCandidateFNH"
-    )
+    AGGREGATE_DIR = mo.notebook_location() / "public" / "data" / "C01_UniverseCandidateFNH"
 
     def read_public_parquet(path):
         path = str(path)
@@ -589,24 +583,18 @@ def _(hierarchy_number, mo, pd):
     EXPECTED_RICS_COLUMNS = ("rics_k50", "rics_k200", "rics_k400")
 
     def load_classification_counts(variable, scope_key="all"):
-        table = read_public_parquet(
-            AGGREGATE_DIR / "classification" / f"{variable}.parquet"
-        )
+        table = read_public_parquet(AGGREGATE_DIR / "classification" / f"{variable}.parquet")
         return table.loc[table["scope_key"] == scope_key].copy()
 
     def load_crosswalk_counts(left_variable, right_variable, scope_key="all"):
         table = read_public_parquet(
-            AGGREGATE_DIR
-            / "crosswalk"
-            / f"{left_variable}__{right_variable}.parquet"
+            AGGREGATE_DIR / "crosswalk" / f"{left_variable}__{right_variable}.parquet"
         )
         return table.loc[table["scope_key"] == scope_key].copy()
 
     def load_joint_counts(industry_variable, occupation_variable, scope_key="all"):
         table = read_public_parquet(
-            AGGREGATE_DIR
-            / "joint"
-            / f"{industry_variable}__{occupation_variable}.parquet"
+            AGGREGATE_DIR / "joint" / f"{industry_variable}__{occupation_variable}.parquet"
         )
         return table.loc[table["scope_key"] == scope_key].copy()
 
@@ -614,8 +602,6 @@ def _(hierarchy_number, mo, pd):
         AGGREGATE_DIR,
         AVAILABLE_RICS_COLUMNS,
         AVAILABLE_ROLE_COLUMNS,
-        EXPECTED_RICS_COLUMNS,
-        EXPECTED_ROLE_COLUMNS,
         load_classification_counts,
         load_crosswalk_counts,
         load_joint_counts,
@@ -629,8 +615,6 @@ def _(
     AGGREGATE_DIR,
     AVAILABLE_RICS_COLUMNS,
     AVAILABLE_ROLE_COLUMNS,
-    EXPECTED_RICS_COLUMNS,
-    EXPECTED_ROLE_COLUMNS,
     MIN_ALL_COUNTRY_INDUSTRY_HIRES,
     MISSING_LABEL,
     available_country_options,
@@ -701,9 +685,7 @@ def _(
         summary = summary.loc[summary["value"] != MISSING_LABEL]
         return dict(zip(summary["display_label"], summary["value"], strict=True))
 
-    role_crosswalk_rows = read_public_parquet(
-        AGGREGATE_DIR / "role_onet_crosswalk.parquet"
-    )
+    role_crosswalk_rows = read_public_parquet(AGGREGATE_DIR / "role_onet_crosswalk.parquet")
     if "role_k1500" in AVAILABLE_ROLE_COLUMNS:
         role_crosswalk_rows["ONET code and title"] = (
             role_crosswalk_rows["onet_code"].astype("string")
@@ -752,9 +734,7 @@ def _(
         ]
     )
     schema_report = read_public_parquet(AGGREGATE_DIR / "schema_report.parquet")
-    title_diagnostics = read_public_parquet(
-        AGGREGATE_DIR / "title_diagnostics.parquet"
-    )
+    title_diagnostics = read_public_parquet(AGGREGATE_DIR / "title_diagnostics.parquet")
     onet_title_diagnostic = title_diagnostics.loc[
         title_diagnostics["classification"] == "ONET",
         ["code", "distinct_titles"],
@@ -823,9 +803,12 @@ def _(
 
                 Notes:
                 - This is the broadest sample of the new hires.
-                - Further restrictions on industries and occupations will be guided by the summary statistics below.
+                    - Further restrictions on industries and occupations will be guided by the summary statistics below.
                 - The sample is at the user-company level, so one user can appear multiple times as a new hire at different companies.
-                - All summary statistics are simple averages over these user-company observations.
+                    - All summary statistics are simple averages over these user-company observations.
+                - **Software engineers (who are a relatively large share of patent filers -- which we will see in later report) are not included in this broadest sample of new hires.**
+                    - Software engineers are under 2-digit occupation code 15: Computer and Mathematical Occupations.
+                    - In our baseline BioPharma industry, I will show that software engineers are not important inventors (in a later report when I describe the sample of USPTO-LinkedIn inventors).
                 """
             ),
             mo.md(
@@ -1089,7 +1072,10 @@ def _(
         mo.md("### 2.3. Crosswalk from ONET to Revelio's own occupation"),
         mo.md(R"""
             - This is the crosswalk from ONET to Revelio's own occupation classifications.
-            - An expected composition often indicates a systematic crosswalk problem.
+            - An unexpected composition often indicates a systematic crosswalk problem.
+                - Try to input "Astronomers" or "Historians" in the occupation selector button.
+                - Among "Astronomers" in ONET, they are actually "students" in `role_k1500`.
+                - Among "Historians" in ONET, 66 percentage of them are "research" in `role_k1500`.
             """),
         mo.hstack(
             [onet_role_country_selector, onet_role_variable_selector, _control],
@@ -1127,8 +1113,8 @@ def _(mo, role_onet_cardinality_violations, role_onet_crosswalk):
         else:
             _diagnostic = mo.md(R"""
                 - This is the crosswalk from Revelio's own occupation classifications to ONET.
-                - Each occupation in `role_k1500` maps to 1 and only 1 ONET occupation; while 1 ONET occupation could be mapped to multiple roles in `role_k1500`.
-                - The table is ordered by the `role_k1500` category's share of candidate focal new hires, from largest to smallest.
+                    - Each occupation in `role_k1500` maps to 1 and only 1 ONET occupation; while 1 ONET occupation could be mapped to multiple roles in `role_k1500`.
+                    - The table is ordered by the `role_k1500` category's share of candidate focal new hires, from largest to smallest.
                 - Main message: **Revelio's own occupation classifications are messy and often don't match to their literal meaning.**
                 """)
         _content = mo.vstack(
@@ -1161,12 +1147,16 @@ def _(mo):
     - We shouldn't use a single Revelio's occupation variable for sample construction.
         - The ONET occupations are very unstable (recall the Astronomers and Historians).
         - We shouldn't either start with Revelio's own occupation classifications, because these variables often have ambiguous names (we cannot tell the exact nature of an occupation simply from its name itself).
-    - The best workflow is:
-        - We start from a selected industry (or a set of industries) because Revelio's industry classifications seem to be more consistent across NAICS and their own industry classification system.
-        - **Next, using the results in Section 4 of this report, we select occupations that have relatively large share within the selected industry.**
-        - Optionally, we can do further restrictions based on users' reported job titles for robustness checks.
-            - For example, exclude those new hires whose self-reported job titles are clearly not what we want.
-            - For example, we keep only the job titles within the ONET codes that frequently show up in the sample.
+    - **The best workflow is:**
+        - **We start from a selected industry (or a set of industries) because Revelio's industry classifications seem to be more consistent across NAICS and their own industry classification system.**
+        - **Next, guided by other results in the report, we select occupations that have relatively large share within the selected industry.**
+    -  Optionally, we can do further restrictions based on users' (or inventors' -- see the last report where I document the inventors' most frequent job titles) self-reported job titles.
+        - For example, exclude those new hires whose self-reported job titles are clearly not what we want.
+        - For example, we keep only the job titles within the ONET codes that frequently show up in the sample.
+    - Even though the individual occupation classifications are quite messy, **I am not too worried about the issue that the universe sample is constructed by using the ONET occupation codes.**
+        - This is a very broad occupation restriction, and if a inventor is classified outside the occupation codes 17 or 19, this will be a serious measurement error.
+        - In a later report where I document the inventors' ONET occupations, I find that most inventors are classified as occupation codes 17 and 19.
+        - The important missing occupation codes among inventors are software engineers (who are under 2-digit occupation code "15: Computer and Mathematical Occupations"). However, they are a very small group of inventors in our baseline BioPharma industry.
     - In summary, these are limitations inherited in Revelio's data, and we need to carefully deal with measurement errors of users' occupations.
     """)
     return
@@ -1184,7 +1174,7 @@ def _(mo):
     - Unlike occupation classifications (where we know ONET codes are derived from Revelio's own occupation classifications), **there is no clear map between NAICS industries and Revelio's own industries**.
         - For example, "Pharmaceutical Preparation Manufacturing" (in NAICS) maps to multiple industries in `rics_k400`: Pharmaceuticals (54.5%); Pharmaceutical Manufacturing (32.7%); Biotechnology and Life Sciences (3.7%); Life Sciences and Diagnostics (2.5%) Biopharmaceuticals and Healthcare Services (1.8%).
         - In the other way around, "Pharmaceuticals" (in `rics_k400`) maps to multiple NAICS industries: Pharmaceutical Preparation Manufacturing (70.5%); Biological Product (except Diagnostics) Manufacturing (13.7%); Research and Development in Biotechnology (except Nanobiotechnology) (6.1%); Surgical and Medical Instrument Manufacturing (5.3%).
-    - The good thing is that the Revelio's own industry classifications are clear and intuitive enough, so I suggest we start from them.
+    - **Revelio's own industry classifications are clear and intuitive enough, and my observation is that Revelio's own industry classifications are quite consistent with the NAICS classifications, so I suggest we start from them.**
     """)
     return
 
@@ -1238,10 +1228,6 @@ def _(
             mo.md(
                 """
                 ### 3.1. NAICS distribution
-
-                Industries must have at least 1,000 candidate new hires in the all-country
-                sample. Top-N truncates the resulting count ranking and therefore reveals a
-                stable prefix.
                 """
             ),
             mo.hstack(
@@ -1321,10 +1307,8 @@ def _(
                 """
                 ### 3.2. Revelio's own industry distribution
 
-                - The `rics_k400` view is a practical starting point for defining industries.
+                - **The `rics_k400` view is a practical starting point for defining industries.**
                 - NAICS can be used for robustness checks to see whether conclusions depend on the proprietary Revelio classification.
-                - Industry eligibility requires at least 1,000 candidate new hires in the
-                  all-country sample; Top-N only truncates the stable eligible ranking.
                 """
             ),
             mo.hstack(
@@ -1491,6 +1475,7 @@ def _(
             rf"""
             - Select a `{finest_rics_column}` category to see its NAICS composition.
             - A dispersed NAICS composition suggests that we should do NAICS-based restrictions as robustness checks.
+            - **My observation is that Revelio's own industry classifications are quite consistent with the NAICS classifications.**
             """
         ),
         mo.hstack(
@@ -1579,9 +1564,10 @@ def _(mo):
     ## 4. Industry-occupation distribution
 
     - In this section, I document the joint and marginal distribution of industry-occupation combinations among the universe sample of candidate focal new hires.
-    - Based on my current understanding of the data, an intuitive way to select the final analysis sample is:
-        - We start with an industry that is patents-intensive (e.g., BioPharma based on Revelio's own industry classifications `rics_k400`) -- this part of evidence will show in the next part about the match rates.
-        - Next, using summary statistics from this section, we select ONET occupations that constitute most of the scientists/engineers in the selected industry.
+    - **As discussed before, I suggest to construct the final analysis sample in the following way:**
+        - **We start with an industry that is patents-intensive (e.g., BioPharma based on Revelio's own industry classifications `rics_k400`) -- this part of evidence will show in a later report on USPTO-LinkedIn match rates.**
+        - **Next, we select ONET occupations that constitute most of the scientists/engineers in the selected industry.**
+        - **Optionally, we may want to directly select the final sample of new hires based on their self-reported job titles -- the most frequent job titles among inventors will be shown in a later report.**
     - In what follows:
         - I will first document the joint distribution of industry-occupation combinations.
         - Next, I will document the occupation distribution within a selected industry (or a set of industries).
@@ -1623,10 +1609,6 @@ def _(
                 ### 4.1. Joint industry-occupation distribution
 
                 - Each bar reports the share of the universe sample in an industry-occupation combination within the selected country scope.
-                - Joint cells reveal concentrations that can be hidden in the separate occupation and industry distributions.
-                - Industries must have at least 1,000 candidate new hires in the all-country
-                  sample. The Top-N control changes the number of eligible combinations displayed,
-                  not the denominator used to calculate shares.
                 """
             ),
             mo.hstack(
@@ -1790,10 +1772,8 @@ def _(
                 """
                 ### 4.2. Conditional occupation distribution within an industry
 
-                - The selected industries are pooled before calculating the occupation shares.
-                - Each bar reports an occupation's share of universe-sample hires in the selected country and industry set.
-                - The industry selector includes only categories with at least 1,000 candidate
-                  new hires in the all-country sample.
+                - Each bar reports an occupation's share in universe-sample of new hires in the selected country and industry set.
+                - The selected industries are pooled before calculating the occupation shares, so they are calculating the marginal distributon of occupations within the selected industries.
                 """
             ),
             mo.hstack(
@@ -1964,10 +1944,8 @@ def _(
                 """
                 ### 4.3. Conditional industry distribution within an occupation
 
-                - The selected occupations are pooled before calculating the industry shares.
-                - Each bar reports an industry's share of universe-sample hires in the selected country and occupation set.
-                - Only industries with at least 1,000 candidate new hires in the all-country
-                  sample are eligible; Top-N truncates their stable count ranking.
+                - Each bar reports an industry's share in the universe-sample of new hires in the selected country and occupation set.
+                - The selected occupations are pooled before calculating the industry shares, so they are calculating the marginal distributon of industries within the selected occupations.
                 """
             ),
             mo.hstack(
@@ -2007,7 +1985,7 @@ def _(
 
 
 @app.cell
-def _(AGGREGATE_DIR, country_iso3, math, pd, read_public_parquet, us_state_code):
+def _(AGGREGATE_DIR, country_iso3, math, read_public_parquet, us_state_code):
     country_summary = read_public_parquet(AGGREGATE_DIR / "country_counts.parquet")
     country_summary = country_summary.rename(columns={"country": "value"})
     country_summary["country"] = country_summary["value"]
@@ -2070,8 +2048,6 @@ def _(mapped_country_summary, mo, px, unmapped_country_summary):
                 ## 5. Other results
 
                 ### 5.1. Geography distribution
-
-                - The country map reports absolute candidate-hire concentration and global shares.
                 """
             ),
             _figure,
@@ -2125,11 +2101,6 @@ def _(mo, px, state_map_coverage, state_map_data, unmatched_state_data):
         ).update_geos(scope="usa", visible=False)
     mo.vstack(
         [
-            mo.md(
-                R"""
-                - State shares use all U.S. candidate focal new hires as the denominator.
-                """
-            ),
             _figure,
             mo.md(f"The state-code mapping covers **{state_map_coverage:.2%}** of U.S. hires."),
             mo.accordion(
@@ -2218,11 +2189,10 @@ def _(
     mo.vstack(
         [
             mo.md(
-                """
+                r"""
                 ### 5.2. Seniority distribution
 
-                - Shares use candidate focal new hires in the selected country scope as the
-                  denominator.
+                - Seniority levels 1-3 consistutes around 80% of the new hires.
                 """
             ),
             seniority_country_selector,
@@ -2259,7 +2229,6 @@ def _(
     AGGREGATE_DIR,
     alt,
     mo,
-    pd,
     read_public_parquet,
     resolve_country_scope,
     time_series_country_selector,

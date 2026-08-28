@@ -58,7 +58,7 @@ import marimo
 __generated_with = "0.24.0"
 app = marimo.App(
     width="full",
-    layout_file="layouts/B03_FNH_InventorMatchRates.slides.json",
+    layout_file="layouts/C02_MatchRatesToInventorData.slides.json",
     auto_download=["html"],
 )
 
@@ -82,15 +82,18 @@ def title(mo):
     mo.vstack(
         [
             mo.md("""
-                # Inventor match rates among candidate focal new hires
+                # USPTO-LinkedIn match rates among universe of candidate new hires
 
                 The inventor database:
-                - Gaurav sent me a list of users that can be matched to an inventor ID (or multiple inventor IDs).
-                    - It is at user-level (if we temporarily ignore the small set of users who have multiple inventor IDs). I will call it the **inventor database**.
+                - Gaurav sent me a list of LinkedIn users that can be matched to an inventor ID (or multiple inventor IDs) in USPTO.
+                    - It is at user-level (if we temporarily ignore the small set of users who have multiple inventor IDs). I will call it simply as the **inventor database**.
                     - I merge the universe sample of candidate focal new hires with the inventor database.
+
+                Important interpretation notes:
+                - **Even though I sometimes call it simply the *match rate*, it is important to keep in mind that this is the share of users in our universe sample of new hires who can be successfully matched to US patent database.**
                 - This section is mainly about heterogeneous match rates across occupations, industries, and countries.
                     - Match rates can be calculated at two levels: user-company level, and user level. The results are similar for these two different levels.
-                    - As expected, there is huge difference in match rates across countries.
+                - As expected, there is huge difference in match rates across countries.
                 """)
         ]
     )
@@ -111,6 +114,11 @@ def helpers(alt, pd, pl, pycountry, re):
         "All countries": "all",
         "United States": "us",
         "Non-U.S.": "non_us",
+    }
+    _SCOPE_COLORS = {
+        "All countries": "#2563EB",
+        "United States": "#0F766E",
+        "Non-U.S.": "#B45309",
     }
     RATE_TABLE_FORMATS = {
         "Match rate": "{:.2%}",
@@ -421,6 +429,11 @@ def helpers(alt, pd, pl, pycountry, re):
 
         return alt.Axis(format=".1%", tickCount=6, labelOverlap=False)
 
+    def _scope_color_range(scope_order):
+        """Keep each country sample's color consistent across figures."""
+
+        return [_SCOPE_COLORS.get(_scope, "#7C3AED") for _scope in scope_order]
+
     def _reference_subtitle(reference_rates):
         _valid = reference_rates.dropna(subset=["reference_rate"])
         if _valid.empty:
@@ -480,7 +493,6 @@ def helpers(alt, pd, pl, pycountry, re):
         title,
         metric,
         top_n,
-        color_range,
         reference_rates,
         minimum_candidate_spells=0,
     ):
@@ -572,7 +584,10 @@ def helpers(alt, pd, pl, pycountry, re):
                 color=alt.Color(
                     "country_scope:N",
                     title="Country scope",
-                    scale=alt.Scale(domain=_scope_order, range=color_range),
+                    scale=alt.Scale(
+                        domain=_scope_order,
+                        range=_scope_color_range(_scope_order),
+                    ),
                     legend=alt.Legend(orient="bottom", direction="horizontal"),
                 ),
                 tooltip=_chart_tooltips(metric, include_scope=True),
@@ -599,7 +614,6 @@ def helpers(alt, pd, pl, pycountry, re):
         summary,
         title,
         metric,
-        color_range,
         reference_rates,
     ):
         """Plot seniority as grouped horizontal bars in numeric order."""
@@ -653,7 +667,10 @@ def helpers(alt, pd, pl, pycountry, re):
                 color=alt.Color(
                     "country_scope:N",
                     title="Country scope",
-                    scale=alt.Scale(domain=_scope_order, range=color_range),
+                    scale=alt.Scale(
+                        domain=_scope_order,
+                        range=_scope_color_range(_scope_order),
+                    ),
                     legend=alt.Legend(orient="bottom", direction="horizontal"),
                 ),
                 tooltip=_chart_tooltips(metric, include_scope=True),
@@ -747,7 +764,7 @@ def helpers(alt, pd, pl, pycountry, re):
         )
         return _chart, _analysis_table
 
-    def make_time_chart(summary, title, metric, color_range):
+    def make_time_chart(summary, title, metric):
         """Make a monthly line chart for the requested denominator definition."""
 
         _rate_column, _, _high_column, _ = metric_columns(metric)
@@ -778,7 +795,10 @@ def helpers(alt, pd, pl, pycountry, re):
                 color=alt.Color(
                     "country_scope:N",
                     title="Country scope",
-                    scale=alt.Scale(domain=_scope_order, range=color_range),
+                    scale=alt.Scale(
+                        domain=_scope_order,
+                        range=_scope_color_range(_scope_order),
+                    ),
                 ),
                 tooltip=[
                     alt.Tooltip("country_scope:N", title="Country scope"),
@@ -834,9 +854,13 @@ def helpers(alt, pd, pl, pycountry, re):
         ]
         _chart_data = summary.loc[:, _chart_columns].copy()
         for _column in ("match_rate", "ci_low", "ci_high"):
-            _chart_data[_column] = _chart_data[_column].astype(object).where(
-                _chart_data[_column].notna(),
-                None,
+            _chart_data[_column] = (
+                _chart_data[_column]
+                .astype(object)
+                .where(
+                    _chart_data[_column].notna(),
+                    None,
+                )
             )
         _valid = _chart_data.dropna(subset=["match_rate"]).copy()
         _color_max = max(float(_valid["match_rate"].max()), 0.01) if not _valid.empty else 0.01
@@ -1046,14 +1070,10 @@ def helpers(alt, pd, pl, pycountry, re):
         MISSING_LABEL,
         RATE_TABLE_FORMATS,
         SCOPE_OPTIONS,
-        US_LABEL,
         add_rate_statistics,
         aggregate_classification_rates,
         aggregate_reference_rates,
-        available_countries,
-        classification_match_rates,
         country_iso3,
-        grouped_match_rates,
         hierarchy_number,
         make_grouped_rate_chart,
         make_industry_occupation_heatmap,
@@ -1062,18 +1082,13 @@ def helpers(alt, pd, pl, pycountry, re):
         make_time_chart,
         metric_columns,
         metric_label,
-        reference_match_rates,
-        sample_statistics,
-        scoped_classification_match_rates,
         us_state_code,
     )
 
 
 @app.cell
 def paths_and_schema(hierarchy_number, mo, pd):
-    AGGREGATE_DIR = (
-        mo.notebook_location() / "public" / "data" / "C02_MatchRatesToInventorData"
-    )
+    AGGREGATE_DIR = mo.notebook_location() / "public" / "data" / "C02_MatchRatesToInventorData"
 
     def read_public_parquet(path):
         path = str(path)
@@ -1130,12 +1145,10 @@ def load_data(AGGREGATE_DIR, read_public_parquet):
 
     def load_joint_counts(industry_variable, occupation_variable):
         return read_public_parquet(
-            AGGREGATE_DIR
-            / "joint"
-            / f"{industry_variable}__{occupation_variable}.parquet"
+            AGGREGATE_DIR / "joint" / f"{industry_variable}__{occupation_variable}.parquet"
         )
 
-    return fnh, link_diagnostics, load_joint_counts, load_rate_counts, scope_totals
+    return link_diagnostics, load_joint_counts, load_rate_counts, scope_totals
 
 
 @app.cell
@@ -1215,8 +1228,10 @@ def basic_numbers(
             mo.md("""
                 # 1. Basic numbers
 
+                - Note that the sample of new hires is at **user-company** level, and the inventor database is at **user** level, so I can calculate match rates either at user-company or user level.
+                    - These two numbers are very similar so there is no need to distinguish them carefully.
                 - Baseline all-country match rate for all candidate focal new hires is around 1.4%.
-                - US match rate is around 3.9%; while non-US match rate is around 0.7%.
+                    - US match rate is around 3.9%; while non-US match rate is around 0.7%.
                 """),
             mo.ui.table(
                 basic_numbers_table,
@@ -1247,14 +1262,7 @@ def basic_numbers(
 
 
 @app.cell
-def occupation_controls(
-    METRIC_OPTIONS,
-    OCCUPATION_LABELS,
-    SCOPE_OPTIONS,
-    available_countries,
-    fnh,
-    mo,
-):
+def occupation_controls(METRIC_OPTIONS, OCCUPATION_LABELS, SCOPE_OPTIONS, mo):
     occupation_metric_selector = mo.ui.dropdown(
         options=METRIC_OPTIONS,
         value="User-company level",
@@ -1267,12 +1275,6 @@ def occupation_controls(
         label="Occupation classification",
         full_width=True,
     )
-    occupation_country_selector = mo.ui.multiselect(
-        options=available_countries(fnh),
-        value=[],
-        label="Countries replacing the non-U.S. series (optional)",
-        full_width=True,
-    )
     occupation_table_scope_selector = mo.ui.dropdown(
         options=SCOPE_OPTIONS,
         value="All countries",
@@ -1280,7 +1282,6 @@ def occupation_controls(
         full_width=True,
     )
     return (
-        occupation_country_selector,
         occupation_metric_selector,
         occupation_selector,
         occupation_table_scope_selector,
@@ -1347,7 +1348,6 @@ def occupation_rates(
         (f"Inventor {metric_label(occupation_metric)}-level match rates by {occupation_title}"),
         occupation_metric,
         occupation_top_n_selector.value,
-        ["#2563EB", "#0F766E", "#B45309"],
         occupation_reference_table,
     )
     occupation_plot_table = occupation_plot_table.drop(columns=["scope_key"], errors="ignore")
@@ -1355,10 +1355,8 @@ def occupation_rates(
         occupation_summary["scope_key"] == occupation_table_scope_selector.value
     ].copy()
     occupation_table = occupation_table.drop(columns=["scope_key"], errors="ignore")
-    occupation_note = "Match rates are higher within U.S. new hires than non-U.S. new hires for almost all occupations."
     return (
         occupation_chart,
-        occupation_note,
         occupation_plot_table,
         occupation_reference_table,
         occupation_table,
@@ -1370,9 +1368,7 @@ def occupation_output(
     RATE_TABLE_FORMATS,
     mo,
     occupation_chart,
-    occupation_country_selector,
     occupation_metric_selector,
-    occupation_note,
     occupation_plot_table,
     occupation_reference_table,
     occupation_selector,
@@ -1408,8 +1404,8 @@ def occupation_output(
                 """
                 ## 2. Match rates across different occupations
 
-                - As discussed before, several ONET occupations arise from problematic Revelio role mappings.
-                - Therefore, it is necessary to compare classification systems and inspect the exact denominators before interpreting a high match rate substantively.
+                - As discussed before, unexpected ONET occupations arise from problematic Revelio role mappings.
+                - Match rates are higher within U.S. new hires than non-U.S. new hires for almost all occupations.
                 """
             ),
             mo.vstack(
@@ -1417,8 +1413,6 @@ def occupation_output(
                     occupation_metric_selector,
                     occupation_selector,
                     occupation_top_n_selector,
-                    occupation_country_selector,
-                    mo.md(occupation_note),
                 ],
                 gap=1,
             ),
@@ -1454,8 +1448,6 @@ def industry_controls(
     INDUSTRY_LABELS,
     METRIC_OPTIONS,
     SCOPE_OPTIONS,
-    available_countries,
-    fnh,
     mo,
 ):
     industry_metric_selector = mo.ui.dropdown(
@@ -1470,12 +1462,6 @@ def industry_controls(
         label="Industry classification",
         full_width=True,
     )
-    industry_country_selector = mo.ui.multiselect(
-        options=available_countries(fnh),
-        value=[],
-        label="Countries replacing the non-U.S. series (optional)",
-        full_width=True,
-    )
     industry_table_scope_selector = mo.ui.dropdown(
         options=SCOPE_OPTIONS,
         value="All countries",
@@ -1483,7 +1469,6 @@ def industry_controls(
         full_width=True,
     )
     return (
-        industry_country_selector,
         industry_metric_selector,
         industry_selector,
         industry_table_scope_selector,
@@ -1551,7 +1536,6 @@ def industry_rates(
         (f"Inventor {metric_label(industry_metric)}-level match rates by {industry_title}"),
         industry_metric,
         industry_top_n_selector.value,
-        ["#B45309", "#2563EB", "#0F766E"],
         industry_reference_table,
         minimum_candidate_spells=MIN_ALL_COUNTRY_INDUSTRY_HIRES,
     )
@@ -1583,7 +1567,6 @@ def industry_rates(
 def industry_output(
     RATE_TABLE_FORMATS,
     industry_chart,
-    industry_country_selector,
     industry_metric_selector,
     industry_note,
     industry_plot_table,
@@ -1622,8 +1605,7 @@ def industry_output(
                 """
                 ## 3. Match rates across different industries
 
-                - The results are quite aligned with our expectations.
-                    - Electronics and BioPharma are industries with relatively high match rates.
+                - The results are quite aligned with our expectations: Electronics and BioPharma are industries with relatively high match rates.
                 """
             ),
             mo.vstack(
@@ -1631,7 +1613,6 @@ def industry_output(
                     industry_metric_selector,
                     industry_selector,
                     industry_top_n_selector,
-                    industry_country_selector,
                     mo.md(industry_note),
                 ],
                 gap=1,
@@ -1669,8 +1650,6 @@ def industry_occupation_controls(
     METRIC_OPTIONS,
     OCCUPATION_LABELS,
     SCOPE_OPTIONS,
-    available_countries,
-    fnh,
     mo,
 ):
     io_industry_variable_selector = mo.ui.dropdown(
@@ -1691,12 +1670,6 @@ def industry_occupation_controls(
         label="Country scope",
         full_width=True,
     )
-    io_custom_country_selector = mo.ui.multiselect(
-        options=available_countries(fnh),
-        value=[],
-        label="Countries used when the country scope is Selected countries",
-        full_width=True,
-    )
     io_metric_selector = mo.ui.dropdown(
         options=METRIC_OPTIONS,
         value="User-company level",
@@ -1705,7 +1678,6 @@ def industry_occupation_controls(
     )
     return (
         io_country_scope_selector,
-        io_custom_country_selector,
         io_industry_variable_selector,
         io_metric_selector,
         io_occupation_variable_selector,
@@ -2013,7 +1985,6 @@ def industry_occupation_output(
     industry_occupation_table,
     industry_occupation_totals,
     io_country_scope_selector,
-    io_custom_country_selector,
     io_industry_values_selector,
     io_industry_variable_selector,
     io_metric_selector,
@@ -2040,22 +2011,18 @@ def industry_occupation_output(
                 - A reasonable workflow is to first determine the focal industry, and then select occupations based on occupation distribution and match rates within the selected industry.
                 """
             ),
-            mo.md("Heatmap cells show the match rate and matched / candidate counts. "),
             io_industry_variable_selector,
             io_industry_values_selector,
             io_occupation_variable_selector,
             io_occupation_values_selector,
             io_country_scope_selector,
-            io_custom_country_selector,
             io_metric_selector,
+            mo.md("Heatmap cells show the match rate and matched / candidate counts. "),
             _figure,
             mo.md(industry_occupation_note),
-            mo.ui.table(
-                industry_occupation_totals,
-                pagination=False,
-                show_column_summaries=False,
-                format_mapping=RATE_TABLE_FORMATS,
-            ),
+            mo.md(f"""
+                Among all selected industry-occupation cells, there are {industry_occupation_totals["Candidate observations"][0]:,} new hires, {industry_occupation_totals["Matched observations"][0]:,} new hires that can be matched to USPTO inventor database, match rate = {industry_occupation_totals["Match rate"][0]:0.3f}.
+            """),
             mo.accordion(
                 {
                     "View industry-occupation cell statistics": mo.ui.table(
@@ -2248,8 +2215,9 @@ def country_output(
             mo.md("### 5.1. Match rates across economies"),
             mo.md(f"""
                 - Countries must have at least {MIN_COUNTRY_CANDIDATE_SPELLS:,} candidate focal new hires.
-                - This is to avoid some small-sized countries have unusually high match rates.
-                - US is not the country with the highest rate, though this partially reflects there are substantially more new hires in US (3,491,981) when comparing with e.g., South Korea (59,025).
+                    - This is to avoid some small-sized countries have unusually high match rates.
+                - US is not the country with the highest rate. 
+                    - This is partially caused by the fact that there are substantially more new hires in US (3,491,981) when comparing with e.g., South Korea (59,025).
             """),
             country_metric_selector,
             country_top_n_selector,
@@ -2381,23 +2349,11 @@ def state_output(
 
 
 @app.cell
-def seniority_controls(
-    METRIC_OPTIONS,
-    SCOPE_OPTIONS,
-    available_countries,
-    fnh,
-    mo,
-):
+def seniority_controls(METRIC_OPTIONS, SCOPE_OPTIONS, mo):
     seniority_metric_selector = mo.ui.dropdown(
         options=METRIC_OPTIONS,
         value="User-company level",
         label="Match-rate definition for seniority results",
-        full_width=True,
-    )
-    seniority_country_selector = mo.ui.multiselect(
-        options=available_countries(fnh),
-        value=[],
-        label="Countries replacing the non-U.S. seniority series (optional)",
         full_width=True,
     )
     seniority_table_scope_selector = mo.ui.dropdown(
@@ -2406,11 +2362,7 @@ def seniority_controls(
         label="Country scope for the seniority table",
         full_width=True,
     )
-    return (
-        seniority_country_selector,
-        seniority_metric_selector,
-        seniority_table_scope_selector,
-    )
+    return seniority_metric_selector, seniority_table_scope_selector
 
 
 @app.cell
@@ -2432,7 +2384,6 @@ def seniority_rates(
         seniority_summary,
         f"Inventor {metric_label(seniority_metric)}-level match rates by seniority",
         seniority_metric,
-        ["#7C3AED", "#2563EB", "#0F766E"],
         seniority_reference_table,
     )
     seniority_summary["seniority_order"] = pd.to_numeric(
@@ -2458,7 +2409,6 @@ def seniority_output(
     RATE_TABLE_FORMATS,
     mo,
     seniority_chart,
-    seniority_country_selector,
     seniority_metric_selector,
     seniority_plot_table,
     seniority_reference_table,
@@ -2497,7 +2447,6 @@ def seniority_output(
                 """
             ),
             seniority_metric_selector,
-            seniority_country_selector,
             _figure,
             mo.accordion(
                 {
@@ -2525,23 +2474,11 @@ def seniority_output(
 
 
 @app.cell
-def start_month_controls(
-    METRIC_OPTIONS,
-    SCOPE_OPTIONS,
-    available_countries,
-    fnh,
-    mo,
-):
+def start_month_controls(METRIC_OPTIONS, SCOPE_OPTIONS, mo):
     start_month_metric_selector = mo.ui.dropdown(
         options=METRIC_OPTIONS,
         value="User-company level",
         label="Match-rate definition for start-month results",
-        full_width=True,
-    )
-    start_month_country_selector = mo.ui.multiselect(
-        options=available_countries(fnh),
-        value=[],
-        label="Countries replacing the non-U.S. start-month series (optional)",
         full_width=True,
     )
     start_month_table_scope_selector = mo.ui.dropdown(
@@ -2550,11 +2487,7 @@ def start_month_controls(
         label="Country scope for the start-month table",
         full_width=True,
     )
-    return (
-        start_month_country_selector,
-        start_month_metric_selector,
-        start_month_table_scope_selector,
-    )
+    return start_month_metric_selector, start_month_table_scope_selector
 
 
 @app.cell
@@ -2580,7 +2513,6 @@ def start_month_rates(
             "match rates by focal-hire start month"
         ),
         start_month_metric,
-        ["#DC2626", "#2563EB", "#0F766E"],
     )
     start_month_table = start_month_summary.loc[
         start_month_summary["scope_key"] == start_month_table_scope_selector.value
@@ -2599,7 +2531,6 @@ def start_month_output(
     RATE_TABLE_FORMATS,
     mo,
     start_month_chart,
-    start_month_country_selector,
     start_month_metric_selector,
     start_month_plot_table,
     start_month_table,
@@ -2632,7 +2563,6 @@ def start_month_output(
                 """
             ),
             start_month_metric_selector,
-            start_month_country_selector,
             _figure,
             mo.accordion(
                 {

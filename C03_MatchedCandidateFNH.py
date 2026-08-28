@@ -23,7 +23,7 @@ import marimo
 __generated_with = "0.24.0"
 app = marimo.App(
     width="full",
-    layout_file="layouts/B04_FNH_MatchedSummaryStats.slides.json",
+    layout_file="layouts/C03_MatchedCandidateFNH.slides.json",
     auto_download=["html"],
 )
 
@@ -45,11 +45,11 @@ def _():
 @app.cell
 def _(mo):
     mo.md(r"""
-    # Inventor-matched candidate focal new hires: Summary statistics
+    # USPTO-LinkedIn matched sample of candidate focal new hires: Summary statistics
 
     - In this report, I will offer summary statistics for the matched sample of candidate new hires.
     - When possible, I will always constrast them with the corresponding statistics for the universe sample of candidate new hires.
-    - **One key message from such a comparison is that the inventor-matched sample is different from the universe sample of candidate new hires.**
+    - **One key message from such a comparison is that the USPTO-LinkedIn matched sample is different from the universe sample of candidate new hires.**
     """)
     return
 
@@ -142,44 +142,26 @@ def _(alt, math, pd, pycountry, re):
         summary["value"] = summary["display_label"]
         return summary
 
-    def available_country_options(data):
-        countries = sorted(
-            str(country)
-            for country in data["country"].dropna().astype("string").unique()
-            if str(country) not in {MISSING_LABEL, US_LABEL}
-        )
+    def available_country_options():
         return {
             "All countries": ALL_COUNTRIES_SCOPE,
             US_LABEL: US_SCOPE,
             "Non-U.S. countries": NON_US_SCOPE,
-            **{country: country for country in countries},
         }
 
-    def filter_country_scope(data, selections):
-        selected = tuple(selections or ())
-        if not selected or ALL_COUNTRIES_SCOPE in selected:
+    def filter_country_scope(data, selection):
+        if selection == ALL_COUNTRIES_SCOPE:
             return data, "All countries"
-        mask = pd.Series(False, index=data.index)
-        labels = []
-        if US_SCOPE in selected:
-            mask |= data["country"].eq(US_LABEL)
-            labels.append(US_LABEL)
-        if NON_US_SCOPE in selected:
-            mask |= (
+        if selection == US_SCOPE:
+            return data.loc[data["country"].eq(US_LABEL)].copy(), US_LABEL
+        if selection == NON_US_SCOPE:
+            mask = (
                 data["country"].notna()
                 & data["country"].ne(US_LABEL)
                 & data["country"].ne(MISSING_LABEL)
             )
-            labels.append("Non-U.S. countries")
-        explicit_countries = [
-            value
-            for value in selected
-            if value not in {ALL_COUNTRIES_SCOPE, US_SCOPE, NON_US_SCOPE}
-        ]
-        if explicit_countries:
-            mask |= data["country"].isin(explicit_countries)
-            labels.extend(explicit_countries)
-        return data.loc[mask].copy(), ", ".join(labels)
+            return data.loc[mask].copy(), "Non-U.S. countries"
+        raise ValueError(f"Unknown country scope: {selection}")
 
     def distribution_from_sample_counts(
         counts,
@@ -329,9 +311,13 @@ def _(alt, math, pd, pycountry, re):
         ]
         chart_data = top.loc[:, chart_columns].copy()
         for column in ("count", "share", "baseline_count", "baseline_share", "rank"):
-            chart_data[column] = chart_data[column].astype(object).where(
-                chart_data[column].notna(),
-                None,
+            chart_data[column] = (
+                chart_data[column]
+                .astype(object)
+                .where(
+                    chart_data[column].notna(),
+                    None,
+                )
             )
         base = alt.Chart(chart_data).encode(
             y=alt.Y(
@@ -479,16 +465,13 @@ def _(alt, math, pd, pycountry, re):
         return codes.get(state_name)
 
     return (
-        MISSING_LABEL,
         MIN_ALL_COUNTRY_INDUSTRY_HIRES,
+        MISSING_LABEL,
         available_country_options,
-        category_selector_options,
         country_iso3,
-        distribution_table,
         distribution_from_sample_counts,
         filter_country_scope,
         hierarchy_number,
-        joint_distribution_table,
         joint_from_sample_counts,
         make_share_chart,
         restrict_to_eligible_industries,
@@ -498,9 +481,7 @@ def _(alt, math, pd, pycountry, re):
 
 @app.cell
 def _(hierarchy_number, mo, pd):
-    AGGREGATE_DIR = (
-        mo.notebook_location() / "public" / "data" / "C03_MatchedCandidateFNH"
-    )
+    AGGREGATE_DIR = mo.notebook_location() / "public" / "data" / "C03_MatchedCandidateFNH"
 
     def read_public_parquet(path):
         path = str(path)
@@ -550,23 +531,17 @@ def _(hierarchy_number, mo, pd):
     EXPECTED_RICS_COLUMNS = ("rics_k50", "rics_k200", "rics_k400")
 
     def load_classification_counts(variable):
-        return read_public_parquet(
-            AGGREGATE_DIR / "classification" / f"{variable}.parquet"
-        )
+        return read_public_parquet(AGGREGATE_DIR / "classification" / f"{variable}.parquet")
 
     def load_joint_counts(industry_variable, occupation_variable):
         return read_public_parquet(
-            AGGREGATE_DIR
-            / "joint"
-            / f"{industry_variable}__{occupation_variable}.parquet"
+            AGGREGATE_DIR / "joint" / f"{industry_variable}__{occupation_variable}.parquet"
         )
 
     country_counts = read_public_parquet(AGGREGATE_DIR / "country_counts.parquet")
     link_diagnostics = read_public_parquet(AGGREGATE_DIR / "link_diagnostics.parquet")
     return (
         AGGREGATE_DIR,
-        EXPECTED_RICS_COLUMNS,
-        EXPECTED_ROLE_COLUMNS,
         available_rics_columns,
         available_role_columns,
         country_counts,
@@ -581,14 +556,11 @@ def _(hierarchy_number, mo, pd):
 @app.cell
 def _(
     AGGREGATE_DIR,
-    EXPECTED_RICS_COLUMNS,
-    EXPECTED_ROLE_COLUMNS,
     MIN_ALL_COUNTRY_INDUSTRY_HIRES,
     MISSING_LABEL,
     available_country_options,
     available_rics_columns,
     available_role_columns,
-    country_counts,
     distribution_from_sample_counts,
     hierarchy_number,
     load_classification_counts,
@@ -684,9 +656,7 @@ def _(
         ]
     )
     schema_report = read_public_parquet(AGGREGATE_DIR / "schema_report.parquet")
-    title_diagnostics = read_public_parquet(
-        AGGREGATE_DIR / "title_diagnostics.parquet"
-    )
+    title_diagnostics = read_public_parquet(AGGREGATE_DIR / "title_diagnostics.parquet")
     onet_title_diagnostic = title_diagnostics.loc[
         title_diagnostics["classification"] == "ONET",
         ["code", "distinct_titles"],
@@ -727,7 +697,7 @@ def _(
     basic_numbers["Match rate"] = (
         basic_numbers["Inventor-matched sample"] / basic_numbers["Universe sample"]
     )
-    country_selector_options = available_country_options(country_counts)
+    country_selector_options = available_country_options()
     industry_selector_options = {
         CLASSIFICATION_LABELS[column]: column for column in ("naics_code", *available_rics_columns)
     }
@@ -792,19 +762,21 @@ def _(
             mo.md("## 1. Basic numbers"),
             mo.md(
                 """
-                
-                Recall the construction of the universe sample of candidate new hires:
-                - Retaining employment spells in two-digit occupation groups 17 (Architecture and Engineering) and 19 (Life, Physical, and Social Science).
-                - Retaining starts from January 2021 through December 2023.
-                - Excluding missing geography or job-title information.
-                - Excluding internships.
-                - Retaining one spell per user-company cell.
-
-                
-                This matched notebook adds one restriction: 
-                - Matched sample consists of those new hires who has at least one inventor ID in the  inventor database. 
-                - Multiple inventor IDs will not duplicate the user-company observation. So the matched sample is still at user-company level. 
+        
+                - Recall the construction of the universe sample of candidate new hires:
+                    - Retaining employment spells in two-digit occupation groups 17 (Architecture and Engineering) and 19 (Life, Physical, and Social Science).
+                    - Retaining starts from January 2021 through December 2023.
+                    - Excluding missing geography or job-title information.
+                    - Excluding internships.
+                    - Retaining one spell per user-company cell.
+                - This matched notebook adds one restriction: **Matched sample consists of those new hires who has at least one inventor ID in the USPTO inventor database.**
+                    - Multiple inventor IDs will not duplicate the user-company observation. So the matched sample is still at user-company level.
                 - All summary statistics are simple averages over matched user-company observations.
+                - The same interpretation notes apply:
+                    - This matched sample is the small subsample of the universe sample of candidate new hires that can be matched to an inventor ID in the USPTO database.
+                    - That is to say, there are 2 restrictions in this matched sample:
+                        1. **The user needs to be a new hire during 2021-23 under 2-digit occupations 17 or 19.**
+                        2. **The user needs to have an inventor ID in the USPTO inventor database.**
                 """
             ),
             mo.md(
@@ -841,11 +813,16 @@ def _(
 
 
 @app.cell
-def _(CLASSIFICATION_LABELS, country_selector_options, mo, occupation_selector_options):
-    occupation_country_selector = mo.ui.multiselect(
+def _(
+    CLASSIFICATION_LABELS,
+    country_selector_options,
+    mo,
+    occupation_selector_options,
+):
+    occupation_country_selector = mo.ui.dropdown(
         options=country_selector_options,
-        value=["All countries"],
-        label="Countries",
+        value="All countries",
+        label="Country scope",
         full_width=True,
     )
     occupation_variable_selector = mo.ui.dropdown(
@@ -946,10 +923,10 @@ def _(
     industry_selector_options,
     mo,
 ):
-    industry_country_selector = mo.ui.multiselect(
+    industry_country_selector = mo.ui.dropdown(
         options=country_selector_options,
-        value=["All countries"],
-        label="Countries",
+        value="All countries",
+        label="Country scope",
         full_width=True,
     )
     industry_variable_selector = mo.ui.dropdown(
@@ -1056,10 +1033,10 @@ def _(
     mo,
     occupation_selector_options,
 ):
-    industry_occupation_country_selector = mo.ui.multiselect(
+    industry_occupation_country_selector = mo.ui.dropdown(
         options=country_selector_options,
-        value=["All countries"],
-        label="Countries",
+        value="All countries",
+        label="Country scope",
         full_width=True,
     )
     industry_occupation_industry_selector = mo.ui.dropdown(
@@ -1140,6 +1117,8 @@ def _(
             mo.md(
                 """
                 ### 4.1. Joint industry-occupation distribution
+
+                - Each bar reports the share of the universe sample in an industry-occupation combination within the selected country scope.
                 """
             ),
             mo.hstack(
@@ -1186,10 +1165,10 @@ def _(
     mo,
     occupation_selector_options,
 ):
-    occupation_within_industry_country_selector = mo.ui.multiselect(
+    occupation_within_industry_country_selector = mo.ui.dropdown(
         options=country_selector_options,
-        value=["All countries"],
-        label="Countries",
+        value="All countries",
+        label="Country scope",
         full_width=True,
     )
     occupation_within_industry_industry_variable_selector = mo.ui.dropdown(
@@ -1305,6 +1284,9 @@ def _(
             mo.md(
                 """
                 ### 4.2. Occupation distribution within an industry
+
+                - Each bar reports an occupation's share in the matched- or universe-sample of new hires in the selected country and industry set.
+                - The selected industries are pooled before calculating the occupation shares, so they are calculating the marginal distributon of occupations within the selected industries.
                 """
             ),
             mo.hstack(
@@ -1352,10 +1334,10 @@ def _(
     mo,
     occupation_selector_options,
 ):
-    industry_within_occupation_country_selector = mo.ui.multiselect(
+    industry_within_occupation_country_selector = mo.ui.dropdown(
         options=country_selector_options,
-        value=["All countries"],
-        label="Countries",
+        value="All countries",
+        label="Country scope",
         full_width=True,
     )
     industry_within_occupation_industry_variable_selector = mo.ui.dropdown(
@@ -1475,6 +1457,9 @@ def _(
             mo.md(
                 """
                 ### 4.3. Industry distribution within an occupation
+
+                - Each bar reports an industry's share in the matched- or universe-sample of new hires in the selected country and occupation set.
+                - The selected occupations are pooled before calculating the industry shares, so they are calculating the marginal distributon of industries within the selected occupations.
                 """
             ),
             mo.hstack(
@@ -1520,7 +1505,6 @@ def _(
     country_iso3,
     distribution_from_sample_counts,
     math,
-    pd,
     read_public_parquet,
     us_state_code,
 ):
@@ -1558,9 +1542,7 @@ def _(
     )
     mapped_country_summary = country_summary.dropna(subset=["iso3"]).copy()
     unmapped_country_summary = country_summary.loc[country_summary["iso3"].isna()].copy()
-    us_state_summary = read_public_parquet(
-        AGGREGATE_DIR / "us_state_counts.parquet"
-    ).rename(
+    us_state_summary = read_public_parquet(AGGREGATE_DIR / "us_state_counts.parquet").rename(
         columns={
             "matched_count": "count",
             "universe_count": "baseline_count",
@@ -1583,7 +1565,6 @@ def _(
         baseline_country_summary,
         country_summary,
         mapped_country_summary,
-        state_map_coverage,
         state_map_data,
         unmapped_country_summary,
         unmatched_state_data,
@@ -1625,7 +1606,7 @@ def _(
         title="Inventor-matched candidate focal new hires by country",
     ).update_geos(showframe=False, showcoastlines=True)
     _country_bars = make_share_chart(
-        country_summary,
+        country_summary.sort_values(["share"], ascending=[False]).head(30),
         "Country distribution: matched sample versus universe",
         baseline=baseline_country_summary,
     )
@@ -1660,7 +1641,7 @@ def _(
 
 
 @app.cell
-def _(mo, px, state_map_coverage, state_map_data, unmatched_state_data):
+def _(mo, px, state_map_data, unmatched_state_data):
     if state_map_data.empty:
         _figure = mo.callout(
             mo.md("No U.S. state labels matched the state-code mapping."), kind="warn"
@@ -1708,10 +1689,10 @@ def _(mo, px, state_map_coverage, state_map_data, unmatched_state_data):
 
 @app.cell
 def _(country_selector_options, mo):
-    seniority_country_selector = mo.ui.multiselect(
+    seniority_country_selector = mo.ui.dropdown(
         options=country_selector_options,
-        value=["All countries"],
-        label="Countries",
+        value="All countries",
+        label="Country scope",
         full_width=True,
     )
     return (seniority_country_selector,)
@@ -1793,7 +1774,7 @@ def _(
                 """
                 ### 5.2. Seniority distribution
 
-                - Matched sample has a different seniority distribution compared with all candidate new hires.
+                - **Matched sample has a different seniority distribution compared against the universe of candidate new hires.**
                 - Again, as I have said before, this could have serious implications for our interpretations of the patents-based productivity results.
                 - Firms that hire workers at later career stages may inherit larger pre-hire patent stocks.
                 """
@@ -1808,10 +1789,10 @@ def _(
 
 @app.cell
 def _(country_selector_options, mo):
-    time_series_country_selector = mo.ui.multiselect(
+    time_series_country_selector = mo.ui.dropdown(
         options=country_selector_options,
-        value=["All countries"],
-        label="Countries",
+        value="All countries",
+        label="Country scope",
         full_width=True,
     )
     return (time_series_country_selector,)
