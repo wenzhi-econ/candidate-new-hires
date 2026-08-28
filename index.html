@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Candidate focal new hires and their presence in USPTO</title>
+    <title>
+      Candidate new hires, their presence in USPTO, and full
+      USPTO-LinkedIn inventors
+    </title>
     <style>
       :root {
         color-scheme: light;
@@ -12,76 +15,305 @@
         background: #f4f7fb;
         color: #172033;
       }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
       }
+
       main {
-        width: min(880px, calc(100% - 40px));
-        margin: 72px auto;
+        width: min(960px, calc(100% - 40px));
+        margin: 56px auto 72px;
       }
+
       h1 {
+        max-width: 900px;
+        margin: 0 0 18px;
+        font-size: clamp(1.8rem, 4vw, 2.75rem);
+        line-height: 1.12;
+        letter-spacing: -0.025em;
+      }
+
+      .introduction {
         max-width: 760px;
-        margin-bottom: 16px;
-        font-size: clamp(2rem, 5vw, 3.5rem);
-        line-height: 1.05;
-      }
-      p {
-        max-width: 720px;
+        margin: 0;
         color: #4a556b;
-        font-size: 1.05rem;
-        line-height: 1.65;
+        font-size: 1.08rem;
+        line-height: 1.7;
       }
-      ul {
+
+      .report-list {
         display: grid;
-        gap: 16px;
+        gap: 20px;
         margin: 40px 0 0;
         padding: 0;
         list-style: none;
+        counter-reset: report;
       }
-      a {
-        display: block;
-        padding: 20px 22px;
+
+      .report-list > li {
+        counter-increment: report;
+      }
+
+      .report-card {
+        position: relative;
+        padding: 26px 28px 28px 82px;
         border: 1px solid #d7deea;
-        border-radius: 14px;
+        border-radius: 16px;
         background: #ffffff;
-        color: #075985;
-        font-size: 1.08rem;
-        font-weight: 650;
-        text-decoration: none;
         box-shadow: 0 8px 24px rgb(20 34 66 / 7%);
       }
-      a:hover,
-      a:focus-visible {
-        border-color: #0284c7;
-        outline: none;
-        transform: translateY(-1px);
+
+      .report-card::before {
+        position: absolute;
+        top: 24px;
+        left: 26px;
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border-radius: 10px;
+        background: #e0f2fe;
+        color: #075985;
+        content: counter(report);
+        font-weight: 750;
+      }
+
+      h2 {
+        margin: 0 0 14px;
+        font-size: 1.28rem;
+        line-height: 1.35;
+      }
+
+      h2 a {
+        color: #075985;
+        text-decoration: none;
+        text-underline-offset: 0.18em;
+      }
+
+      h2 a::after {
+        margin-left: 0.35em;
+        content: "\2192";
+        font-size: 0.8em;
+      }
+
+      h2 a:hover {
+        text-decoration: underline;
+      }
+
+      h2 a:focus-visible {
+        border-radius: 4px;
+        outline: 3px solid rgb(2 132 199 / 28%);
+        outline-offset: 3px;
+      }
+
+      .report-card p {
+        max-width: 780px;
+        margin: 0 0 12px;
+        color: #4a556b;
+        font-size: 1rem;
+        line-height: 1.65;
+      }
+
+      .report-card p:last-child {
+        margin-bottom: 0;
+      }
+
+      .report-card ul,
+      .report-card ol {
+        margin: 8px 0 14px;
+        padding-left: 1.35rem;
+        color: #4a556b;
+      }
+
+      .report-card li {
+        margin: 7px 0;
+        padding-left: 0.2rem;
+        line-height: 1.6;
+      }
+
+      .report-card li::marker {
+        color: #0284c7;
+        font-weight: 700;
+      }
+
+      .report-card li > ul {
+        margin-top: 6px;
+        margin-bottom: 4px;
+      }
+
+      strong {
+        color: #26344d;
+      }
+
+      @media (max-width: 640px) {
+        main {
+          width: min(100% - 28px, 960px);
+          margin-top: 36px;
+        }
+
+        .report-card {
+          padding: 22px 20px 24px;
+        }
+
+        .report-card::before {
+          position: static;
+          margin-bottom: 14px;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Candidate focal new hires and their presence in USPTO</h1>
-      <p>
-        Three interactive reports describe the universe of candidate focal new hires,
-        inventor-linkage rates, and the characteristics of inventor-matched hires.
+      <h1>
+        Candidate new hires, their presence in USPTO, and all
+        USPTO-LinkedIn inventors
+      </h1>
+      <p class="introduction">
+        There are four parts in this report.
       </p>
-      <ul>
+
+      <ol class="report-list">
         <li>
-          <a href="C01_UniverseCandidateFNH.html">
-            1. Universe of candidate focal new hires
-          </a>
+          <article class="report-card">
+            <h2>
+              <a href="C01_UniverseCandidateFNH.html">
+                Universe of candidate focal new hires
+              </a>
+            </h2>
+            <ul>
+              <li>
+                The first part characterizes the universe sample of candidate focal new
+                hires.
+              </li>
+              <li>It is the broadest sample of new hires we can study.</li>
+              <li>
+                The only restrictions are that they (1) start a new position during
+                2021&ndash;23 and (2) enter a position under occupation code 17
+                (Architecture and Engineering occupations) or occupation code 19
+                (Life, Physical, and Social Science occupations).
+              </li>
+              <li>
+                <strong>
+                  One important but unpleasant message is that Revelio&rsquo;s occupation
+                  classifications are quite messy.
+                </strong>
+              </li>
+              <li>
+                A large share of records fall into unexpected occupations, such as historians
+                and astronomers, reflecting Revelio's imperfect construction of standardized
+                occupation variables.
+              </li>
+            </ul>
+          </article>
         </li>
+
         <li>
-          <a href="C02_MatchRatesToInventorData.html">
-            2. Match rates to inventor data
-          </a>
+          <article class="report-card">
+            <h2>
+              <a href="C02_MatchRatesToInventorData.html">
+                Match rates to US patents data
+              </a>
+            </h2>
+            <ul>
+              <li>
+                The second part asks to what extent the universe sample can be matched to
+                the US patents database (USPTO).
+              </li>
+              <li>
+                I call the share of candidate new hires who also appear in USPTO the
+                <strong>match rate</strong>.
+              </li>
+              <li>
+                The main goal is to characterize heterogeneous match rates across
+                countries, industries, occupations, and seniority levels.
+              </li>
+            </ul>
+          </article>
         </li>
+
         <li>
-          <a href="C03_MatchedCandidateFNH.html">
-            3. Inventor-matched candidate focal new hires
-          </a>
+          <article class="report-card">
+            <h2>
+              <a href="C03_MatchedCandidateFNH.html">
+                USPTO-LinkedIn matched sample of candidate new hires
+              </a>
+            </h2>
+            <ul>
+              <li>
+                The third part characterizes the
+                <strong>USPTO-LinkedIn matched sample of candidate new hires</strong>.
+              </li>
+              <li>
+                It contains only the subsample of the universe sample that can be matched to
+                the US patents database.
+              </li>
+              <li>
+                One key message is that the matched sample is very different from the
+                universe sample in its country, industry, occupation, and seniority
+                composition.
+              </li>
+            </ul>
+          </article>
         </li>
-      </ul>
+
+        <li>
+          <article class="report-card">
+            <h2>
+              <a href="https://wenzhi-econ.github.io/uspto-linkedin-inventors/E02_USPTOInventors.html">
+                USPTO-LinkedIn matched inventors
+              </a>
+            </h2>
+            <ul>
+              <li>
+                The fourth part characterizes the full sample of inventors in the US
+                patents database.
+              </li>
+              <li>
+                Unlike the previous three parts, these inventors are not necessarily new hires.
+              </li>
+              <li>
+                I include the full <strong>USPTO-LinkedIn matched sample</strong>, regardless
+                of whether an inventor reports a new position during 2021&ndash;23 under
+                occupation code 17 or 19.
+              </li>
+              <li>
+                This part has two purposes:
+                <ol>
+                  <li>
+                    To better understand USPTO-LinkedIn inventors, even when they are not
+                    new hires and therefore never appear in our analysis sample.
+                  </li>
+                  <li>
+                    To examine the self-reported job titles of USPTO-LinkedIn inventors in
+                    case we construct the analysis sample using job titles rather than ONET
+                    occupation codes.
+                    <ul>
+                      <li>
+                        Previous reports show that Revelio&rsquo;s occupation classifications
+                        are quite messy.
+                      </li>
+                      <li>
+                        This suggests that we may want to construct the final analysis
+                        sample using users&rsquo; self-reported job titles instead of
+                        Revelio&rsquo;s occupation variables.
+                      </li>
+                    </ul>
+                  </li>
+                </ol>
+              </li>
+              <li>
+                One key, and pleasant, message is that although individual ONET codes are
+                quite messy, they can still capture almost all inventors&mdash;especially
+                in our baseline BioPharma industry.
+              </li>
+            </ul>
+          </article>
+        </li>
+      </ol>
     </main>
   </body>
 </html>
