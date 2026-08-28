@@ -50,6 +50,7 @@ jobs:
             marimo export html-wasm "$notebook" \
               --output "_site/${notebook%.py}.html" \
               --mode run \
+              --execute \
               --no-show-code \
               --force
           done
